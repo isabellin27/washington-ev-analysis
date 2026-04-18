@@ -1,0 +1,374 @@
+---
+title: "EV Utility Services Analysis"
+author: "Isabel Lin"
+format:
+  revealjs:
+    embedded-resources: true
+    theme: solarized
+    slide-number: true
+    transition: zoom
+    smaller: true
+    scrollable: true
+execute:
+  enabled: true
+  echo: false
+  warning: false
+  message: false
+  eval: true
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(sf)
+library(maps)
+library(leaflet)
+library(tigris)  
+
+ev_data <- read.csv("data/EV_Data.csv")
+```
+
+---
+
+##  {auto-animate="true"}
+
+::: {style="margin-top: 75px; font-size: 1em;"}
+You somehow managed to stumble upon Isabel's Final Project presentation!
+:::
+
+<style>
+.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+</style>
+
+::: {.center}
+![ ](image/Surprised_Pikachu.jpg){width=500px}
+:::
+
+::: footer
+@ 2024 Isabel Lin
+:::
+
+##  {auto-animate="true"}
+
+::: {style="margin-top: 200px; font-size: 8em; color: red;"}
+Welcome!
+:::
+
+::: footer
+@ 2024 Isabel Lin
+:::
+
+---
+
+## So what am I studying you may ask?
+
+::: {.fragment .fade-in-then-out}
+Good question
+:::
+
+::: {.fragment}
+For my final project, I'm using the [Electric Vehicle Population Data](https://catalog.data.gov/dataset/electric-vehicle-population-data).
+
+This dataset shows the Battery Electric Vehicles (BEVs) and Plug-in Hybrid Electric Vehicles (PHEVs) that are currently registered through Washington State Department of Licensing (DOL).
+:::
+
+::: footer
+@ 2024 Isabel Lin
+:::
+
+---
+
+## Burning Questions 💡
+
+::: panel-tabset
+### Why?
+
+-   I’m actually a transfer student, and one of the reasons I transferred was to learn more about sustainability.
+- I’m really interested in electric vehicles and wanted to explore if there’s a way to identify potential greenwashing through data. 
+- I chose Washington state data because this was the most condense and up to data that I could find. I’m really interested in how legislative or policy shape EV adoption. 
+
+---
+
+### Goal
+
+-   I aim to analyze Washington state EV data to explore:
+    -   Possible greenwashing indicators.
+    -   Legislative or policy impacts on EV adoption.
+
+---
+
+### Questions
+
+-   What are the most popular electric vehicle makes and models in the dataset?
+-   Which counties or cities in Washington state have the highest number of EVs?
+-   Is there a geographic bias in utility services for EVs?
+-   What trends in EV adoption can be observed based on model year?
+
+---
+
+### Variables
+
+- VIN (1-10)	
+- County	
+- City	
+- State	
+- Postal Code	
+- Model 
+- Year	
+- Make
+- Model
+- Electric Vehicle Type	
+- Clean Alternative Fuel Vehicle (CAFV) Eligibility	
+- Electric Range	
+- Base MSRP	
+- Legislative District	
+- DOL Vehicle ID	
+- Vehicle Location	
+- Utility	2020 Census Tract
+:::
+
+::: footer
+@ 2024 Isabel Lin
+:::
+
+---
+
+## What are the most popular EV makes and models? 🚗️
+
+```{r}
+# Count the num of vehicles per make
+make_counts <- ev_data %>%
+  group_by(Make) %>%
+  summarise(Count = n()) %>%
+  arrange(desc(Count))
+
+# Filter for the top 10 most popular EV makes
+top_makes <- make_counts %>%
+  slice_max(order_by = Count, n = 10)
+
+# Plot
+ggplot(top_makes, aes(x = reorder(Make, Count), y = Count, fill = Count)) +
+  geom_bar(stat = "identity", color = "black", width = 0.8) +
+  geom_text(aes(label = Count), hjust = 1.2, size = 2, color = "black", fontface = "bold") +
+  scale_fill_gradient(low = "skyblue", high = "steelblue") +
+  labs(
+    title = "Top 10 Most Popular EV Makes",
+    subtitle = "Count of vehicles for the top EV makes",
+    x = "EV Makes",
+    y = "Number of Vehicles",
+    caption = "Source: Washington State EV Database, 2024"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.y = element_text(size = 12, face = "bold"),  
+    axis.title = element_text(face = "bold"),
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank()
+  ) +
+  coord_flip()  
+
+```
+
+::: footer
+@ 2024 Isabel Lin
+:::
+
+---
+
+## Which counties or cities in Washington state have the highest number of EVs? 🏙️
+
+```{r}
+ev_count_by_county <- ev_data %>%
+  group_by(County) %>%
+  summarize(total_ev_count = n()) %>%
+  ungroup() %>%
+  mutate(County = tolower(County))  
+
+# Get geospatial data for Washington state counties
+wa_counties <- map_data("county") %>%
+  filter(region == "washington")
+
+# Join the EV data to the map data
+wa_ev_map_data <- wa_counties %>%
+  left_join(ev_count_by_county, by = c("subregion" = "County"))
+
+# Plot the map
+ggplot(wa_ev_map_data, aes(x = long, y = lat, group = group, fill = total_ev_count)) +
+  geom_polygon(color = "black") +
+  coord_fixed(1.3) +
+  scale_fill_viridis_c(option = "plasma", na.value = "grey90") +
+  labs(
+    title = "EV Distribution Across Washington Counties",
+    fill = "Total EVs",
+caption = "Source: Washington State EV Database, 2024" ) +
+  theme_minimal(base_size = 14) + 
+  theme(
+    plot.title = element_text(
+      face = "bold",        
+      size = 14,            
+      hjust = 0.5,         
+      margin = margin(b = 10)  
+    ),
+    panel.grid = element_blank(),
+    axis.title = element_blank(),  
+    axis.text = element_blank(),  
+    axis.ticks = element_blank()  
+  )
+```
+
+::: footer
+@ 2024 Isabel Lin
+:::
+
+---
+
+## What are the trends in EV adoption by model year? 📈
+
+```{r}
+# Summarize the data: Count number of EV registrations by Model Year
+model_year_counts <- ev_data %>%
+  group_by(Model.Year) %>%
+  summarize(Number.of.Registrations = n()) %>%
+  arrange(Model.Year)
+
+# Create the line chart
+ggplot(data = model_year_counts, aes(x = Model.Year, y = Number.of.Registrations)) +
+  geom_line(color = "#4E2A84", size = 1.2) +
+  geom_point(color = "#4E2A84", size = 2) +
+  labs(
+    title = "Trends in EV Adoption by Model Year",
+    x = "Model Year",
+    y = "Number of EV Registrations",
+    caption = "Source: Washington State EV Database, 2024"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    panel.grid = element_blank(),     
+    axis.line = element_line(),        
+    axis.line.x = element_line(),      
+    axis.line.y = element_line()        
+  )
+```
+
+::: footer
+@ 2024 Isabel Lin
+:::
+
+---
+
+## Is there a geographic bias in utility services for EVs? 🔌 
+
+```{r, include=FALSE}
+# Define the geographic bounds of Washington State
+wa_bounds <- list(
+  min_lon = -125, max_lon = -116,
+  min_lat = 45, max_lat = 49
+)
+
+# Separate Longitude and Latitude into different columns
+ev_data_separated <- ev_data %>%
+  filter(!is.na(Vehicle.Location)) %>%
+  mutate(Vehicle.Location = gsub("POINT \\(|\\)", "", Vehicle.Location)) %>%
+  separate(Vehicle.Location, into = c("Longitude", "Latitude"), sep = " ", convert = TRUE) %>%
+  filter(Longitude >= wa_bounds$min_lon & Longitude <= wa_bounds$max_lon &
+         Latitude >= wa_bounds$min_lat & Latitude <= wa_bounds$max_lat)  # Filter out invalid coordinates
+
+charging_stations <- ev_data_separated %>%
+  filter(!is.na(Longitude) & !is.na(Latitude))  # Ensure valid coordinates
+
+# Summarize EV counts by county
+ev_count_by_county <- ev_data_separated %>%
+  group_by(County) %>%
+  summarize(total_ev_count = n(), .groups = "drop") %>%
+  mutate(County = tolower(County))  # Ensure lowercase for matching
+
+# Get Washington county boundaries
+wa_counties_sf <- counties(state = "WA", cb = TRUE, class = "sf") %>%
+  mutate(NAME = tolower(NAME))  # Ensure lowercase for matching
+
+# Transform the datum to WGS84
+wa_counties_sf <- st_transform(wa_counties_sf, crs = 4326)
+
+# Join EV counts to county boundaries
+wa_ev_map_data <- wa_counties_sf %>%
+  left_join(ev_count_by_county, by = c("NAME" = "County"))
+```
+
+```{r}
+# Create the interactive map
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(
+    data = wa_ev_map_data,
+    fillColor = ~colorBin("YlGnBu", wa_ev_map_data$total_ev_count, na.color = "grey")(total_ev_count),
+    weight = 1,
+    color = "black",
+    fillOpacity = 0.7,
+    popup = ~paste(NAME, "<br>", "Total EVs:", total_ev_count)
+  ) %>%
+  addCircleMarkers(
+    data = charging_stations,
+    lng = ~Longitude,
+    lat = ~Latitude,
+    radius = 5,
+    color = "red",
+    fillOpacity = 0.7,
+    popup = ~paste0(
+      "<b>Charging Station:</b> ", Electric.Utility, "<br>",
+      "<b>County:</b> ", County, "<br>",
+      "<b>City:</b> ", City
+    ), clusterOptions = markerClusterOptions()
+  ) %>%
+  setView(lng = -120, lat = 47, zoom = 6) %>%  
+  addControl(
+  html = "<div style='font-size:10px; color:gray;'>Source: Washington State EV Database, 2024</div>",
+  position = "bottomright"
+)  %>%
+  addControl(
+  html ="<div style='font-size:20px; font-weight:bold; color:#333; background-color: rgba(255, 255, 255, 0.8); padding:10px 20px; border-radius:5px; box-shadow: 0 0 5px rgba(0,0,0,0.3);'>Washington State EV Distribution and Charging Locations</div>",
+  position = "topright",
+  className = "map-title"
+)
+
+
+```
+
+---
+
+## Conclusions (Scroll To Read All!!)
+
+- What are the most popular EV makes and models?
+    - Tesla is by far the most popular EV make in Washington state, with numbers that dwarf all other brands. Chevrolet, Nissan, and Ford trail behind but still show solid adoption, suggesting most EV drivers stick to a handful of well-known manufacturers.
+- Which counties or cities in Washington state have the highest number of EVs?
+    - The data clearly shows that King County leads the way in EV ownership, with the majority of registrations clustered in urban areas. This suggests that cities with strong infrastructure and resources are driving EV adoption, while rural areas lag behind.
+- What are the trends in EV adoption by model year? 
+    - EV adoption has exploded in recent years, particularly after 2018. The spike aligns with better technology, falling EV prices, and strong incentives like tax breaks and rebates, showing how impactful these factors are in encouraging people to make the switch.
+- Is there a geographic bias in utility services for EVs?
+    - The map reveals a noticeable gap in EV utility services between western and eastern Washington. Urban areas in the west, especially around Seattle, have much better EV infrastructure, while the eastern regions have significantly fewer resources. This uneven access likely influences EV adoption rates.
+
+::: footer
+@ 2024 Isabel Lin
+:::
+
+---
+
+## Final Conclusion
+
+  The EV data from Washington state shows promising progress but also brings up some important challenges. The rapid growth in EV adoption is likely thanks to programs like the [Washington State Clean Energy Fund](https://www.commerce.wa.gov/epic/legacy-programs/cef/), which helped make cleaner transportation more accessible by funding infrastructure and offering incentives. At the same time, Tesla’s overwhelming popularity raises questions about whether EV adoption is truly accessible or just catering to specific demographics. On top of that, rural and eastern parts of the state are still struggling with limited infrastructure, making it harder for those communities to join the transition to EVs.
+
+  For Washington to truly lead in sustainable transportation, efforts must go beyond flashy adoption rates. Investments in charging networks, targeted rural incentives, and equitable policy implementation are critical to ensuring the benefits of EVs reach all communities and deliver on their environmental promise.
+
+::: footer
+@ 2024 Isabel Lin
+:::
